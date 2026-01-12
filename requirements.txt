@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-multipart
+huggingface_hub
+python-dotenv
+Pillow

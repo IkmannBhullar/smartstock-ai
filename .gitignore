@@ -1,0 +1,17 @@
+# Python (Backend)
+backend/venv/
+backend/__pycache__/
+*.pyc
+
+# Node (Frontend)
+frontend/node_modules/
+frontend/.next/
+frontend/.env
+
+# Mac System Files
+.DS_Store
+
+# Temporary Media Files (Don't upload test images/audio)
+*.wav
+*.jpg
+*.png
