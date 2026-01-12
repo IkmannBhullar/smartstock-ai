@@ -14,6 +14,10 @@ export default function Home() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [voiceNote, setVoiceNote] = useState<any>(null);
 
+  // --- CONFIGURATION ---
+  // This automatically switches between Localhost and Render
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
   // 1. CAPTURE IMAGE
   const capture = useCallback(async () => {
     if (!webcamRef.current) return;
@@ -27,15 +31,14 @@ export default function Home() {
       const formData = new FormData();
       formData.append('file', blob, 'capture.jpg');
 
-      // Send to Backend
-      const response = await fetch('http://127.0.0.1:8000/analyze-image', {
+      // Send to Backend (Now uses API_URL)
+      const response = await fetch(`${API_URL}/analyze-image`, {
         method: 'POST',
         body: formData,
       });
 
       const data = await response.json();
-
-      console.log("AI RESPONSE:", data); // <--- ADD THIS LINE
+      console.log("AI RESPONSE:", data); 
 
       setInventory(data.items);
     } catch (error) {
@@ -43,48 +46,52 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [webcamRef]);
+  }, [webcamRef, API_URL]);
 
   // 2. RECORD VOICE (Simple Native Browser API)
   const startRecording = async () => {
     setIsRecording(true);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mediaRecorder = new MediaRecorder(stream);
-    const audioChunks: BlobPart[] = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const audioChunks: BlobPart[] = [];
 
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
-    };
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
 
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'voice.wav');
-      
-      setLoading(true);
-      try {
-        const response = await fetch('http://127.0.0.1:8000/process-voice', {
-          method: 'POST',
-          body: formData,
-        });
-        const data = await response.json();
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'voice.wav');
+        
+        setLoading(true);
+        try {
+          // Send to Backend (Now uses API_URL)
+          const response = await fetch(`${API_URL}/process-voice`, {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await response.json();
 
+          setVoiceNote(data);
+        } catch (error) {
+          console.error('Error processing voice:', error);
+        } finally {
+          setLoading(false);
+          setIsRecording(false);
+        }
+      };
 
-
-        setVoiceNote(data);
-      } catch (error) {
-        console.error('Error processing voice:', error);
-      } finally {
-        setLoading(false);
-        setIsRecording(false);
-      }
-    };
-
-    mediaRecorder.start();
-    // Record for 5 seconds automatically (for simplicity)
-    setTimeout(() => {
-      mediaRecorder.stop();
-    }, 5000);
+      mediaRecorder.start();
+      // Record for 5 seconds automatically (for simplicity)
+      setTimeout(() => {
+        mediaRecorder.stop();
+      }, 5000);
+    } catch (err) {
+      console.error("Microphone permission denied:", err);
+      setIsRecording(false);
+    }
   };
 
   return (
@@ -101,6 +108,7 @@ export default function Home() {
               audio={false}
               ref={webcamRef}
               screenshotFormat="image/jpeg"
+              videoConstraints={{ facingMode: 'environment' }} // Added: Uses back camera on phones
               className="w-full h-full object-cover"
             />
           ) : (
